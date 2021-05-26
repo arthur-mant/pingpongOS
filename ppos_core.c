@@ -12,23 +12,6 @@ task_t *task_atual;
 task_t task_main, task_dispatcher;
 task_t *ready_task_queue=NULL;
 
-void ppos_init() {
-
-    setvbuf(stdout, 0, _IONBF, 0);
-
-    task_main.id = 0;
-    getcontext(&task_main.context);
-    task_atual = &task_main;
-
-    task_create(&task_dispatcher, dispatcher, NULL);
-
-    #ifdef DEBUG
-    printf("inicialização completa com sucesso\n");
-    #endif
-
-    task_yield();
-
-}
 
 int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
 
@@ -56,6 +39,7 @@ int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
     if (task != &task_dispatcher) {     //contador de tarefas do usuário
         ++user_tasks;
         queue_append((queue_t **) &ready_task_queue, (queue_t*) task);
+    }
 
     #ifdef DEBUG
     printf("task_create: tarefa %d criada\n", task->id);
@@ -82,10 +66,11 @@ void task_exit (int exit_code) {
 
     if (task_atual == &task_dispatcher) 
         task_switch(&task_main);
-    else
+    else {
         user_tasks--;
         queue_remove((queue_t**) &ready_task_queue, (queue_t*) task_atual);
         task_switch(&task_dispatcher);
+    }
 }
 
 int task_id () {
@@ -98,21 +83,42 @@ void task_yield() {
     task_switch(&task_dispatcher);
 }
 
+task_t *scheduler() {
+    if (ready_task_queue == NULL)
+        return NULL;
+    task_t *first_task=ready_task_queue;
+    ready_task_queue = ready_task_queue->next;
+    return first_task;
+}
+
 void dispatcher() {
+    #ifdef DEBUG
+    printf("dispatcher inicializado\n");
+    #endif
     task_t *proxima;
     while (user_tasks > 0) {
-        proxima = scheduler()
+        proxima = scheduler();
         if (proxima != NULL) {
             task_switch(proxima);
+            //tratar a tarefa de acordo com o estado: pronta, terminada, etc.
         }
     }
     task_exit(0);
 }
 
-task_t *scheduler() {
-    if (ready_task_queue == NULL)
-        return NULL
-    task_t *first_task=ready_task_queue;
-    ready_task_queue = ready_task_queue->next;
-    return first_task;
+
+void ppos_init() {
+
+    setvbuf(stdout, 0, _IONBF, 0);
+
+    task_main.id = 0;
+    getcontext(&task_main.context);
+    task_atual = &task_main;
+
+    task_create(&task_dispatcher, dispatcher, NULL);
+
+    #ifdef DEBUG
+    printf("inicialização completa com sucesso\n");
+    #endif
+
 }
