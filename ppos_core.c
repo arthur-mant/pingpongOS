@@ -43,7 +43,7 @@ int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
     }
 
     #ifdef DEBUG
-    printf("task_create: tarefa %d criada\n", task->id);
+    printf("task_create: tarefa %d criada na memória %p\n", task->id, task);
     #endif
 
     return task->id;
@@ -105,31 +105,37 @@ int task_getprio(task_t *task) {
 }
 
 task_t *scheduler() {
+    #ifdef DEBUG
+    printf("scheduler inicializado\n");
+    #endif
     if (ready_task_queue == NULL)
         return NULL;
 
     int aging_value = -1;
-    task_t *aux_task, priority_task;
+    task_t *aux_task, *priority_task;
     priority_task = ready_task_queue;
     aux_task = ready_task_queue->next;
 
     while (aux_task != ready_task_queue) {
-
+    
         if (priority_task->dynamic_priority > aux_task->dynamic_priority) {
-
+            
             priority_task->dynamic_priority += aging_value;
             priority_task = aux_task;
 
         }
         else {
 
-            aux_task += aging_value;
+            aux_task->dynamic_priority += aging_value;
 
         }
+        
         aux_task = aux_task->next;
-
     }
     priority_task->dynamic_priority = priority_task->static_priority;
+    #ifdef DEBUG
+    printf("a tarefa %d possui a maior prioridade\n", priority_task->id);
+    #endif
 
     return priority_task;
 }
