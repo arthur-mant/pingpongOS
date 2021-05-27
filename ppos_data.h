@@ -20,6 +20,9 @@ typedef struct task_t
    struct task_t *prev, *next ;		// ponteiros para usar em filas
    int id ;				// identificador da tarefa
    ucontext_t context ;			// contexto armazenado da tarefa
+   int static_priority;
+   int dynamic_priority;
+
    // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 

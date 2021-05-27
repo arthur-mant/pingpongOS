@@ -35,6 +35,7 @@ int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
 
     makecontext(&task->context , (void*)(start_routine), 1, arg);
     task->id = ++task_count;
+    task->static_priority = task->dynamic_priority = 0;
 
     if (task != &task_dispatcher) {     //contador de tarefas do usuário
         ++user_tasks;
@@ -83,12 +84,54 @@ void task_yield() {
     task_switch(&task_dispatcher);
 }
 
+void task_setprio(task_t *task, int prio) {
+
+    if ((prio > 20) || (prio < -20))
+        printf("ERRO: prioridade %d inválida", prio);
+    else {
+        if (task == NULL)
+            task_atual->static_priority = task_atual->dynamic_priority = prio;
+        else
+            task->static_priority = task->dynamic_priority = prio;
+    }
+}
+
+int task_getprio(task_t *task) {
+
+    if (task == NULL)
+        return task_atual->static_priority;
+    return task->static_priority;
+
+}
+
 task_t *scheduler() {
     if (ready_task_queue == NULL)
         return NULL;
-    task_t *first_task=ready_task_queue;
-    ready_task_queue = ready_task_queue->next;
-    return first_task;
+
+    int aging_value = -1;
+    task_t *aux_task, priority_task;
+    priority_task = ready_task_queue;
+    aux_task = ready_task_queue->next;
+
+    while (aux_task != ready_task_queue) {
+
+        if (priority_task->dynamic_priority > aux_task->dynamic_priority) {
+
+            priority_task->dynamic_priority += aging_value;
+            priority_task = aux_task;
+
+        }
+        else {
+
+            aux_task += aging_value;
+
+        }
+        aux_task = aux_task->next;
+
+    }
+    priority_task->dynamic_priority = priority_task->static_priority;
+
+    return priority_task;
 }
 
 void dispatcher() {
