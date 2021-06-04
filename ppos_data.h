@@ -1,3 +1,6 @@
+//Autor: Arthur Martinelli Antonietto
+//GRR20182559
+
 // PingPongOS - PingPong Operating System
 // Prof. Carlos A. Maziero, DINF UFPR
 // Versão 1.1 -- Julho de 2016
@@ -23,6 +26,9 @@ typedef struct task_t
    int static_priority;
    int dynamic_priority;
    int system_task;
+   int time_init;
+   int time_processor;
+   int activations;
 
    // ... (outros campos serão adicionados mais tarde)
 } task_t ;

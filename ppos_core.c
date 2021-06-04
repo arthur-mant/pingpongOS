@@ -1,3 +1,6 @@
+//Autor: Arthur Martinelli Antonietto
+//GRR20182559
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -13,12 +16,18 @@
 int task_count=0;
 int user_tasks=0;
 int quantum_counter;
+unsigned int real_time=0;
+unsigned int task_atual_init_time=0;
 task_t *task_atual;
 task_t task_main, task_dispatcher;
 task_t *ready_task_queue=NULL;
 
 struct sigaction action;
 struct itimerval timer;
+
+unsigned int systime() {
+    return real_time;
+}
 
 int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
 
@@ -43,6 +52,9 @@ int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
     makecontext(&task->context , (void*)(start_routine), 1, arg);
     task->id = ++task_count;
     task->static_priority = task->dynamic_priority = 0;
+    task->time_init = systime();
+    task->time_processor = 0;
+    task->activations = 0;
 
     if (task->system_task == 0) {     //contador de tarefas do usuário
         ++user_tasks;
@@ -62,9 +74,16 @@ int task_switch (task_t *task) {
     #ifdef DEBUG
     printf("task_switch: trocando da tarefa %d para %d\n", task_atual->id, task->id);
     #endif
+
+    task_atual->time_processor += systime()-task_atual_init_time;
+
     task_t *task_anterior = task_atual;
     task_atual = task;
     quantum_counter = QUANTUM;
+
+    task->activations++;
+    task_atual_init_time = systime();
+
     if (swapcontext(&task_anterior->context, &task->context))
         return -1;
     return 0;
@@ -72,6 +91,13 @@ int task_switch (task_t *task) {
 }
 
 void task_exit (int exit_code) {
+
+    printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n",
+        task_atual->id,
+        systime()-task_atual->time_init,
+        task_atual->time_processor+systime()-task_atual_init_time,
+        task_atual->activations
+    );
 
     if (task_atual == &task_dispatcher) 
         task_switch(&task_main);
@@ -164,6 +190,8 @@ void dispatcher() {
 }
 
 void preemptor (int signum) {
+
+    real_time++;
 
     if (task_atual->system_task == 1) {
         #ifdef DEBUG
