@@ -1,3 +1,6 @@
+//Autor: Arthur Martinelli Antonietto
+//GRR20182559
+
 #include <stdio.h>
 
 typedef struct queue_t

@@ -1,3 +1,6 @@
+//Autor: Arthur Martinelli Antonietto
+//GRR20182559
+
 // PingPongOS - PingPong Operating System
 // Prof. Carlos A. Maziero, DINF UFPR
 // Versão 1.1 -- Abril de 2021
