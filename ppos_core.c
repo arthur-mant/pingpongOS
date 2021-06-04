@@ -37,7 +37,7 @@ int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
     task->id = ++task_count;
     task->static_priority = task->dynamic_priority = 0;
 
-    if (task != &task_dispatcher) {     //contador de tarefas do usuário
+    if (!task->system_task) {     //contador de tarefas do usuário
         ++user_tasks;
         queue_append((queue_t **) &ready_task_queue, (queue_t*) task);
     }
@@ -161,9 +161,12 @@ void ppos_init() {
     setvbuf(stdout, 0, _IONBF, 0);
 
     task_main.id = 0;
+    task_main.system_task = 1;
     getcontext(&task_main.context);
+
     task_atual = &task_main;
 
+    task_dispatcher.system_task = 1;
     task_create(&task_dispatcher, dispatcher, NULL);
 
     #ifdef DEBUG
