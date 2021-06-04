@@ -1,17 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <sys/time.h>
 #include "ppos_data.h"
 #include "queue.h"
 
+//DEFINES
 //#define DEBUG
+#define QUANTUM 20 //em ms
 
 //definições de variáveis globais
 int task_count=0;
 int user_tasks=0;
+int quantum_counter;
 task_t *task_atual;
 task_t task_main, task_dispatcher;
 task_t *ready_task_queue=NULL;
 
+struct sigaction action;
+struct itimerval timer;
 
 int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
 
@@ -57,6 +64,7 @@ int task_switch (task_t *task) {
     #endif
     task_t *task_anterior = task_atual;
     task_atual = task;
+    quantum_counter = QUANTUM;
     if (swapcontext(&task_anterior->context, &task->context))
         return -1;
     return 0;
@@ -155,6 +163,16 @@ void dispatcher() {
     task_exit(0);
 }
 
+void preemptor (int signum) {
+
+    if (task_atual->system_task)
+        return;
+
+    quantum_counter--;
+    if (quantum_counter == 0)
+        task_yield();
+
+}
 
 void ppos_init() {
 
@@ -168,6 +186,26 @@ void ppos_init() {
 
     task_dispatcher.system_task = 1;
     task_create(&task_dispatcher, dispatcher, NULL);
+
+    //configurando o preemptor
+    action.sa_handler = preemptor;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    if (sigaction(SIGALRM, &action, 0) < 0) {
+        perror("Erro em sigaction: ");
+        exit(1);
+    }
+
+    //configurando o timer
+    timer.it_value.tv_usec = 1000;
+    timer.it_value.tv_sec = 0;
+    timer.it_interval.tv_usec = 1000;
+    timer.it_interval.tv_sec = 0;
+
+    if (setitimer(ITIMER_REAL, &timer, 0) < 0) {
+        perror("erro em setitimer: ");
+        exit(1);
+    }
 
     #ifdef DEBUG
     printf("inicialização completa com sucesso\n");
