@@ -44,7 +44,7 @@ int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
     task->id = ++task_count;
     task->static_priority = task->dynamic_priority = 0;
 
-    if (!task->system_task) {     //contador de tarefas do usuário
+    if (task->system_task == 0) {     //contador de tarefas do usuário
         ++user_tasks;
         queue_append((queue_t **) &ready_task_queue, (queue_t*) task);
     }
@@ -165,12 +165,20 @@ void dispatcher() {
 
 void preemptor (int signum) {
 
-    if (task_atual->system_task)
+    if (task_atual->system_task == 1) {
+        #ifdef DEBUG
+        printf("preempção em tarefa de sistema, retornando\n");
+        #endif
         return;
+    }
 
     quantum_counter--;
-    if (quantum_counter == 0)
+    if (quantum_counter == 0) {
+        #ifdef DEBUG
+        printf("interrompendo execução da tarefa %d\n", task_atual->id);
+        #endif
         task_yield();
+    }
 
 }
 
