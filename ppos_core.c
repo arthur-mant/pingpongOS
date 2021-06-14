@@ -215,10 +215,15 @@ void ppos_init() {
     setvbuf(stdout, 0, _IONBF, 0);
 
     task_main.id = 0;
-    task_main.system_task = 1;
+    task_main.static_priority = task_main.dynamic_priority = 0;
+    task_main.time_init = 0;
+    task_main.time_processor = 0;
+    task_main.activations = 0;
     getcontext(&task_main.context);
 
     task_atual = &task_main;
+    ++user_tasks;
+    queue_append((queue_t **) &ready_task_queue, (queue_t*) &task_main);
 
     task_dispatcher.system_task = 1;
     task_create(&task_dispatcher, dispatcher, NULL);
@@ -246,5 +251,7 @@ void ppos_init() {
     #ifdef DEBUG
     printf("inicialização completa com sucesso\n");
     #endif
+
+    task_yield();
 
 }
