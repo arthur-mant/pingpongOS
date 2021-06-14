@@ -72,7 +72,7 @@ int task_create (task_t *task, void (*start_routine)(void *), void *arg) {
 int task_switch (task_t *task) {
 
     #ifdef DEBUG
-    printf("task_switch: trocando da tarefa %d para %d\n", task_atual->id, task->id);
+    //printf("task_switch: trocando da tarefa %d para %d\n", task_atual->id, task->id);
     #endif
 
     task_atual->time_processor += systime()-task_atual_init_time;
@@ -99,23 +99,83 @@ void task_exit (int exit_code) {
         task_atual->activations
     );
 
-    if (task_atual == &task_dispatcher) 
-        task_switch(&task_main);
-    else {
+    if (task_atual != &task_dispatcher) {
         user_tasks--;
         queue_remove((queue_t**) &ready_task_queue, (queue_t*) task_atual);
+
+        if (task_atual->tasks_waiting_queue != NULL) {
+
+            task_t *aux_task = task_atual->tasks_waiting_queue;
+
+            while(queue_size((queue_t*)task_atual->tasks_waiting_queue) != 0) {
+                queue_remove((queue_t **) &task_atual->tasks_waiting_queue, (queue_t*) aux_task);
+                queue_append((queue_t **) &ready_task_queue, (queue_t*) aux_task);
+                aux_task->join_exit_code = exit_code;
+                aux_task = task_atual->tasks_waiting_queue;
+            }
+        }
+
         task_switch(&task_dispatcher);
     }
+}
+
+void task_yield() {
+    task_switch(&task_dispatcher);
+}
+
+task_t *find_in_queue(task_t *task, task_t *queue) {
+
+    if (queue == NULL)
+        return NULL;
+
+    task_t *aux_task=queue;
+    task_t *aux_child_task=aux_task->tasks_waiting_queue;
+    int task_counter=0;
+
+    while (
+        (task_counter < queue_size((queue_t*)queue)) &&
+        (aux_task != task) &&
+        (aux_child_task != task)
+        ) {
+
+        aux_child_task = find_in_queue(task, aux_task->tasks_waiting_queue);
+
+        task_counter++;
+        aux_task = aux_task->next;
+    }
+
+    if ((aux_task == task) || (aux_child_task == task))
+        return task;
+    else
+        return NULL;
+
+}
+
+int task_join (task_t *task) {
+
+    if (find_in_queue(task, ready_task_queue) == NULL) {
+        #ifdef DEBUG
+        printf("task_join: tarefa %d não encontrada\n", task->id);
+        #endif
+        return -1;
+    }
+
+    #ifdef DEBUG
+    printf("task_join: removendo tarefa %d da fila de prontas e adicionando na fila de espera da tarefa %d\n", task_atual->id, task->id);
+    #endif
+    queue_remove((queue_t**) &ready_task_queue, (queue_t*) task_atual);
+    queue_append((queue_t**)&(task->tasks_waiting_queue), (queue_t*)task_atual);
+
+    task_yield();
+
+    return task_atual->join_exit_code;
+
 }
 
 int task_id () {
 
     return task_atual->id;
 
-}
-
-void task_yield() {
-    task_switch(&task_dispatcher);
 }
 
 void task_setprio(task_t *task, int prio) {
@@ -140,7 +200,7 @@ int task_getprio(task_t *task) {
 
 task_t *scheduler() {
     #ifdef DEBUG
-    printf("scheduler inicializado\n");
+    //printf("scheduler inicializado\n");
     #endif
     if (ready_task_queue == NULL)
         return NULL;
@@ -168,7 +228,7 @@ task_t *scheduler() {
     }
     priority_task->dynamic_priority = priority_task->static_priority;
     #ifdef DEBUG
-    printf("a tarefa %d possui a maior prioridade\n", priority_task->id);
+    //printf("a tarefa %d possui a maior prioridade\n", priority_task->id);
     #endif
 
     return priority_task;
@@ -183,7 +243,6 @@ void dispatcher() {
         proxima = scheduler();
         if (proxima != NULL) {
             task_switch(proxima);
-            //tratar a tarefa de acordo com o estado: pronta, terminada, etc.
         }
     }
     task_exit(0);
@@ -203,7 +262,7 @@ void preemptor (int signum) {
     quantum_counter--;
     if (quantum_counter == 0) {
         #ifdef DEBUG
-        printf("interrompendo execução da tarefa %d\n", task_atual->id);
+    //    printf("interrompendo execução da tarefa %d\n", task_atual->id);
         #endif
         task_yield();
     }
