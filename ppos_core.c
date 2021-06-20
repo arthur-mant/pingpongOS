@@ -130,7 +130,7 @@ void task_sleep(int sleep_time) {
     queue_remove((queue_t **) &ready_task_queue, (queue_t*) task_atual);
     queue_append((queue_t **) &sleeping_task_queue, (queue_t*) task_atual);
     #ifdef DEBUG
-    printf("colocando task %d para dormir %d ms, wake up time: %d\n", task_atual->id, sleep_time, task_atual->wake_up_time);
+    printf("task_sleep: colocando task %d para dormir %d ms\n", task_atual->id, sleep_time);
     #endif
 
     task_yield();
@@ -168,7 +168,8 @@ task_t *find_in_queue(task_t *task, task_t *queue) {
 
 int task_join (task_t *task) {
 
-    if (find_in_queue(task, ready_task_queue) == NULL) {
+    if ((find_in_queue(task, ready_task_queue) == NULL) && 
+        (find_in_queue(task, sleeping_task_queue) == NULL)){
         #ifdef DEBUG
         printf("task_join: tarefa %d não encontrada\n", task->id);
         #endif
@@ -264,7 +265,7 @@ void dispatcher() {
             aux_next = aux_task->next;
             if (aux_task->wake_up_time <= real_time) {
                 #ifdef DEBUG
-                printf("waking up %d at %d ms, task_wake_up: %d\n", aux_task->id, real_time, aux_task->wake_up_time);
+                printf("dispatcher: acordande %d em %d ms\n", aux_task->id, real_time);
                 #endif
                 queue_remove((queue_t **) &sleeping_task_queue, (queue_t*) aux_task);
                 queue_append((queue_t **) &ready_task_queue, (queue_t*) aux_task);
