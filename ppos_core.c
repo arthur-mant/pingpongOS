@@ -21,6 +21,7 @@ unsigned int task_atual_init_time=0;
 task_t *task_atual;
 task_t task_main, task_dispatcher;
 task_t *ready_task_queue=NULL;
+task_t *sleeping_task_queue=NULL;
 
 struct sigaction action;
 struct itimerval timer;
@@ -121,6 +122,20 @@ void task_exit (int exit_code) {
 
 void task_yield() {
     task_switch(&task_dispatcher);
+}
+
+void task_sleep(int sleep_time) {
+
+    task_atual->wake_up_time = real_time+sleep_time;
+    queue_remove((queue_t **) &ready_task_queue, (queue_t*) task_atual);
+    queue_append((queue_t **) &sleeping_task_queue, (queue_t*) task_atual);
+    #ifdef DEBUG
+    printf("colocando task %d para dormir %d ms, wake up time: %d\n", task_atual->id, sleep_time, task_atual->wake_up_time);
+    #endif
+
+    task_yield();
+    
+
 }
 
 task_t *find_in_queue(task_t *task, task_t *queue) {
@@ -240,6 +255,26 @@ void dispatcher() {
     #endif
     task_t *proxima;
     while (user_tasks > 0) {
+
+        task_t *aux_task, *aux_next;
+        int task_counter;
+        aux_task = sleeping_task_queue;
+        task_counter = queue_size((queue_t *)sleeping_task_queue);
+        while (task_counter > 0) {
+            aux_next = aux_task->next;
+            if (aux_task->wake_up_time <= real_time) {
+                #ifdef DEBUG
+                printf("waking up %d at %d ms, task_wake_up: %d\n", aux_task->id, real_time, aux_task->wake_up_time);
+                #endif
+                queue_remove((queue_t **) &sleeping_task_queue, (queue_t*) aux_task);
+                queue_append((queue_t **) &ready_task_queue, (queue_t*) aux_task);
+            }
+
+            task_counter--;
+            aux_task = aux_next;
+
+        }
+
         proxima = scheduler();
         if (proxima != NULL) {
             task_switch(proxima);

@@ -31,6 +31,7 @@ typedef struct task_t
    int activations;
    struct task_t *tasks_waiting_queue;
    int join_exit_code;
+   int wake_up_time;
    // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 
