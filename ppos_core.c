@@ -16,6 +16,7 @@
 int task_count=0;
 int user_tasks=0;
 int quantum_counter;
+int busy_waiting_lock=0;
 unsigned int real_time=0;
 unsigned int task_atual_init_time=0;
 task_t *task_atual;
@@ -349,4 +350,87 @@ void ppos_init() {
 
     task_yield();
 
+}
+
+int sem_create (semaphore_t *s, int value) {
+
+    if (s == NULL)
+        return -1;
+
+    s->counter = value;
+    s->q = malloc(sizeof(queue_t *));
+
+    #ifdef DEBUG
+    printf("semaphore created\n");
+    #endif
+
+    return 0;
+
+}
+
+int sem_down (semaphore_t *s) {
+
+    if ((s == NULL) || (s->q == NULL))
+        return -1;
+
+    #ifdef DEBUG
+    printf("sem_down started: busy waiting\n");
+    #endif
+    while (__sync_fetch_and_or(&busy_waiting_lock,1));
+
+    s->counter -= 1;
+    if (s->counter < 0) {
+        queue_remove((queue_t **) &ready_task_queue, (queue_t*) task_atual);
+        queue_append(s->q, (queue_t *) task_atual);
+        busy_waiting_lock=0;
+        task_yield();
+    }
+    busy_waiting_lock=0;
+    #ifdef DEBUG
+    printf("lock set to 0\n");
+    #endif
+    return 0;
+}
+
+int sem_up (semaphore_t *s) {
+
+    if ((s == NULL) || (s->q == NULL))
+        return -1;
+
+    #ifdef DEBUG
+    printf("sem_up started: busy waiting\n");
+    #endif
+
+    while (__sync_fetch_and_or(&busy_waiting_lock,1));
+
+    s->counter += 1;
+    if (s->counter <= 0) {
+        queue_t *aux_task = *(s->q);
+        queue_remove(s->q, (queue_t*) aux_task);
+        queue_append((queue_t **) &ready_task_queue, (queue_t *) aux_task);
+    }
+    busy_waiting_lock=0;
+    #ifdef DEBUG
+    printf("lock set to 0\n");
+    #endif
+    return 0;
+}
+
+int sem_destroy (semaphore_t *s) {
+
+    if ((s == NULL) || (s->q == NULL))
+        return -1;
+
+    queue_t *aux_task = *(s->q);
+    while (*(s->q) != NULL) {
+        queue_remove(s->q, aux_task);
+        queue_append((queue_t **) &ready_task_queue, aux_task);
+        aux_task = *(s->q);
+    }
+    s->q=NULL;
+    #ifdef DEBUG
+    printf("semaphore_destroyed\n");
+    #endif
+
+    return 0;
 }
