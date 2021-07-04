@@ -442,7 +442,7 @@ int mqueue_create (mqueue_t *queue, int max_msgs, int msg_size) {
         return -1;
     //o tamanho da fila é 1 a mais q o maximo de mensagens para ser possível diferenciar
     //uma fila cheia de uma fila vazia
-    queue->buffer = (void *)malloc(max_msgs * (msg_size+1));
+    queue->buffer = (void *)malloc((max_msgs+1) * msg_size);
 
     semaphore_t *s_item, *s_vaga, *s_mutex;
 
