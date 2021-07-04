@@ -438,9 +438,11 @@ int sem_destroy (semaphore_t *s) {
 
 int mqueue_create (mqueue_t *queue, int max_msgs, int msg_size) {
 
-    //printf("mqueue_create start\n");
-
-    queue->buffer = (void *)malloc(max_msgs * msg_size);
+    if (queue == NULL)
+        return -1;
+    //o tamanho da fila é 1 a mais q o maximo de mensagens para ser possível diferenciar
+    //uma fila cheia de uma fila vazia
+    queue->buffer = (void *)malloc(max_msgs * (msg_size+1));
 
     semaphore_t *s_item, *s_vaga, *s_mutex;
 
@@ -461,16 +463,14 @@ int mqueue_create (mqueue_t *queue, int max_msgs, int msg_size) {
 
     queue->start = queue->end = 0;
     queue->msg_size = msg_size;
-    queue->queue_size = max_msgs;
+    queue->queue_size = max_msgs+1;
 
-    //printf("mqueue_create end\n");
     return 0;
 
 }
 
 int mqueue_send (mqueue_t *queue, void *msg) {
 
-    //printf("mqueue_send start\n");
     if (queue == NULL)
         return -1;
 
@@ -487,14 +487,12 @@ int mqueue_send (mqueue_t *queue, void *msg) {
     if (sem_up(queue->s_item) == -1)
         return -1;
 
-    //printf("mqueue_send end\n");
     return 0;
 
 }
 
 int mqueue_recv (mqueue_t *queue, void *msg) {
 
-    //printf("mqueue_recv start\n");
     if (queue == NULL)
         return -1;
 
@@ -511,14 +509,12 @@ int mqueue_recv (mqueue_t *queue, void *msg) {
     if (sem_up(queue->s_vaga) == -1)
         return -1;
 
-    //printf("mqueue_recv end\n");
     return 0;
 
 }
 
 int mqueue_destroy (mqueue_t *queue) {
 
-    //printf("mqueue_destroy start\n");
     if (sem_destroy(queue->s_item) == -1)
         return -1;
     if (sem_destroy(queue->s_vaga) == -1)
@@ -527,7 +523,6 @@ int mqueue_destroy (mqueue_t *queue) {
         return -1;
     free(queue->buffer);
     queue = NULL;
-    //printf("mqueue_destroy end\n");
 
     return 0;
 }
@@ -536,6 +531,9 @@ int mqueue_msgs (mqueue_t *queue) {
 
     if (queue == NULL)
         return -1;
-    return (queue->end - queue->start);
+    int result = (queue->end - queue->start);
+    if (result < 0)
+        result+=queue->queue_size;
+    return result;
 
 }
