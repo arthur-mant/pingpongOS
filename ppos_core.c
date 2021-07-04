@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <string.h>
 #include "ppos_data.h"
 #include "queue.h"
 
@@ -433,4 +434,108 @@ int sem_destroy (semaphore_t *s) {
     #endif
 
     return 0;
+}
+
+int mqueue_create (mqueue_t *queue, int max_msgs, int msg_size) {
+
+    //printf("mqueue_create start\n");
+
+    queue->buffer = (void *)malloc(max_msgs * msg_size);
+
+    semaphore_t *s_item, *s_vaga, *s_mutex;
+
+    s_item = malloc(sizeof(semaphore_t));
+    s_vaga = malloc(sizeof(semaphore_t));
+    s_mutex = malloc(sizeof(semaphore_t));
+
+    if (sem_create(s_item, 0) == -1)
+        return -1;
+    if (sem_create(s_vaga, msg_size) == -1)
+        return -1;
+    if (sem_create(s_mutex, 1) == -1)
+        return -1;
+
+    queue->s_item = s_item;
+    queue->s_vaga = s_vaga;
+    queue->s_mutex = s_mutex;
+
+    queue->start = queue->end = 0;
+    queue->msg_size = msg_size;
+    queue->queue_size = max_msgs;
+
+    //printf("mqueue_create end\n");
+    return 0;
+
+}
+
+int mqueue_send (mqueue_t *queue, void *msg) {
+
+    //printf("mqueue_send start\n");
+    if (queue == NULL)
+        return -1;
+
+    if (sem_down(queue->s_vaga) == -1)
+        return -1;
+    if (sem_down(queue->s_mutex) == -1)
+        return -1;
+
+    memcpy((queue->buffer + queue->end * queue->msg_size), msg, queue->msg_size);
+    queue->end = (queue->end+1) % queue->queue_size;
+
+    if (sem_up(queue->s_mutex) == -1)
+        return -1;
+    if (sem_up(queue->s_item) == -1)
+        return -1;
+
+    //printf("mqueue_send end\n");
+    return 0;
+
+}
+
+int mqueue_recv (mqueue_t *queue, void *msg) {
+
+    //printf("mqueue_recv start\n");
+    if (queue == NULL)
+        return -1;
+
+    if (sem_down(queue->s_item) == -1)
+        return -1;
+    if (sem_down(queue->s_mutex) == -1)
+        return -1;
+
+    memcpy(msg, (queue->buffer + queue->start * queue->msg_size), queue->msg_size);
+    queue->start = (queue->start+1) % queue->queue_size;
+
+    if (sem_up(queue->s_mutex) == -1)
+        return -1;
+    if (sem_up(queue->s_vaga) == -1)
+        return -1;
+
+    //printf("mqueue_recv end\n");
+    return 0;
+
+}
+
+int mqueue_destroy (mqueue_t *queue) {
+
+    //printf("mqueue_destroy start\n");
+    if (sem_destroy(queue->s_item) == -1)
+        return -1;
+    if (sem_destroy(queue->s_vaga) == -1)
+        return -1;
+    if (sem_destroy(queue->s_mutex) == -1)
+        return -1;
+    free(queue->buffer);
+    queue = NULL;
+    //printf("mqueue_destroy end\n");
+
+    return 0;
+}
+
+int mqueue_msgs (mqueue_t *queue) {
+
+    if (queue == NULL)
+        return -1;
+    return (queue->end - queue->start);
+
 }
